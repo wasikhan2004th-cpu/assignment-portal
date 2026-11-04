@@ -1,4 +1,4 @@
-﻿name: CI Pipeline
+name: CI Pipeline
 
 on:
   push:
@@ -32,7 +32,7 @@ jobs:
       - name: Build JSON report
         run: |
           python - <<'PYEOF'
-          import json, os
+          import json, os, datetime
 
           with open("pytest_report.json") as f:
               pr = json.load(f)
@@ -54,7 +54,7 @@ jobs:
               "branch":         os.environ.get("GITHUB_REF_NAME", ""),
               "commit_sha":     os.environ.get("GITHUB_SHA", ""),
               "run_id":         os.environ.get("GITHUB_RUN_ID", ""),
-              "timestamp":      os.environ.get("GITHUB_EVENT_HEAD_COMMIT_TIMESTAMP", ""),
+              "timestamp":      datetime.datetime.now(datetime.timezone.utc).isoformat(),
               "tests":          tests,
               "total_count":    total,
               "passed_count":   passed,
@@ -126,7 +126,7 @@ jobs:
       - name: Build report for email
         run: |
           python - <<'PYEOF'
-          import json, os
+          import json, os, datetime
 
           with open("pytest_report.json") as f:
               pr = json.load(f)
@@ -148,7 +148,7 @@ jobs:
               "branch":         os.environ.get("GITHUB_REF_NAME", ""),
               "commit_sha":     os.environ.get("GITHUB_SHA", ""),
               "run_id":         os.environ.get("GITHUB_RUN_ID", ""),
-              "timestamp":      os.environ.get("GITHUB_EVENT_HEAD_COMMIT_TIMESTAMP", ""),
+              "timestamp":      datetime.datetime.now(datetime.timezone.utc).isoformat(),
               "tests":          tests,
               "total_count":    total,
               "passed_count":   passed,
