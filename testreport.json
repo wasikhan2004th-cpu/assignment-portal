@@ -1,8 +1,8 @@
 {
   "repository": "wasikhan2004th-cpu/assignment-portal",
   "branch": "main",
-  "commit_sha": "cc942866e275adb52264a9b807eaf54f70320039",
-  "run_id": "41956024005",
+  "commit_sha": "854ca596193483039ca62f8a75ae074d79dd492d",
+  "run_id": "41956212971",
   "timestamp": "",
   "tests": [
     {
@@ -12,8 +12,8 @@
     },
     {
       "name": "tests/test_portal.py::test_missing_registration_number",
-      "result": "failed",
-      "failure_message": "tests/test_portal.py:53: in test_missing_registration_number\n    assert response.status_code == 400\nE   assert 200 == 400\nE    +  where 200 = <WrapperTestResponse 60 bytes [200 OK]>.status_code"
+      "result": "passed",
+      "failure_message": ""
     },
     {
       "name": "tests/test_portal.py::test_invalid_url",
@@ -22,7 +22,7 @@
     }
   ],
   "total_count": 3,
-  "passed_count": 2,
-  "failed_count": 1,
-  "overall_status": "failed"
+  "passed_count": 3,
+  "failed_count": 0,
+  "overall_status": "passed"
 }
