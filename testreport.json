@@ -1,0 +1,28 @@
+{
+  "repository": "wasikhan2004th-cpu/assignment-portal",
+  "branch": "main",
+  "commit_sha": "8eb8858232bb662769a4f2e6be12161d0ae1263b",
+  "run_id": "41952341485",
+  "timestamp": "",
+  "tests": [
+    {
+      "name": "tests/test_portal.py::test_valid_submission",
+      "result": "passed",
+      "failure_message": ""
+    },
+    {
+      "name": "tests/test_portal.py::test_missing_registration_number",
+      "result": "passed",
+      "failure_message": ""
+    },
+    {
+      "name": "tests/test_portal.py::test_invalid_url",
+      "result": "passed",
+      "failure_message": ""
+    }
+  ],
+  "total_count": 3,
+  "passed_count": 3,
+  "failed_count": 0,
+  "overall_status": "passed"
+}
