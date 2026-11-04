@@ -1,4 +1,4 @@
-name: CI Pipeline
+﻿name: CI Pipeline
 
 on:
   push:
@@ -10,10 +10,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
@@ -28,7 +28,7 @@ jobs:
 
       - name: Build JSON report
         run: |
-          python - <<'EOF'
+          python - <<'PYEOF'
           import json, os
 
           with open("pytest_report.json") as f:
@@ -64,7 +64,7 @@ jobs:
 
           print(f"Status: {'PASSED' if failed == 0 else 'FAILED'}")
           print(f"Total: {total}, Passed: {passed}, Failed: {failed}")
-          EOF
+          PYEOF
 
       - name: Send report to receiver
         run: |
@@ -92,10 +92,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+        uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./static
@@ -108,7 +108,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         run: pip install flask pytest requests pytest-json-report
@@ -120,7 +120,7 @@ jobs:
 
       - name: Build report for email
         run: |
-          python - <<'EOF'
+          python - <<'PYEOF'
           import json, os
 
           with open("pytest_report.json") as f:
@@ -153,7 +153,7 @@ jobs:
 
           with open("report_to_send.json", "w") as f:
               json.dump(report, f, indent=2)
-          EOF
+          PYEOF
 
       - name: Send email report
         uses: dawidd6/action-send-mail@v3
@@ -165,6 +165,7 @@ jobs:
           subject: "CI Report - ${{ github.repository }} - ${{ github.sha }}"
           to: ${{ secrets.EMAIL_TO }}
           from: ${{ secrets.EMAIL_USERNAME }}
+          convert_markdown: true
           body: |
             CI Pipeline Report
             ==================
