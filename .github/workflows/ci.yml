@@ -7,9 +7,6 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    outputs:
-      test_result: ${{ steps.run_tests.outputs.result }}
-      report_json: ${{ steps.build_report.outputs.report }}
 
     steps:
       - name: Checkout code
@@ -21,24 +18,19 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install flask pytest requests
+        run: pip install flask pytest requests pytest-json-report
 
-      - name: Run tests and capture output
+      - name: Run tests
         id: run_tests
         run: |
-          pytest tests/ -v --tb=short --json-report --json-report-file=pytest_report.json || true
-          pip install pytest-json-report
           pytest tests/ -v --tb=short --json-report --json-report-file=pytest_report.json
-          echo "result=done" >> $GITHUB_OUTPUT
         continue-on-error: true
 
       - name: Build JSON report
-        id: build_report
         run: |
           python - <<'EOF'
           import json, os
 
-          # Load pytest report
           with open("pytest_report.json") as f:
               pr = json.load(f)
 
@@ -50,47 +42,47 @@ jobs:
                   "failure_message": t.get("call", {}).get("longrepr", "") if t["outcome"] == "failed" else ""
               })
 
-          total   = len(tests)
-          passed  = sum(1 for t in tests if t["result"] == "passed")
-          failed  = total - passed
+          total  = len(tests)
+          passed = sum(1 for t in tests if t["result"] == "passed")
+          failed = total - passed
 
           report = {
-              "repository":    "${{ github.repository }}",
-              "branch":        "${{ github.ref_name }}",
-              "commit_sha":    "${{ github.sha }}",
-              "run_id":        "${{ github.run_id }}",
-              "timestamp":     "${{ github.event.head_commit.timestamp }}",
-              "tests":         tests,
-              "total_count":   total,
-              "passed_count":  passed,
-              "failed_count":  failed,
+              "repository":     os.environ.get("GITHUB_REPOSITORY", ""),
+              "branch":         os.environ.get("GITHUB_REF_NAME", ""),
+              "commit_sha":     os.environ.get("GITHUB_SHA", ""),
+              "run_id":         os.environ.get("GITHUB_RUN_ID", ""),
+              "timestamp":      os.environ.get("GITHUB_EVENT_HEAD_COMMIT_TIMESTAMP", ""),
+              "tests":          tests,
+              "total_count":    total,
+              "passed_count":   passed,
+              "failed_count":   failed,
               "overall_status": "passed" if failed == 0 else "failed"
           }
 
           with open("report_to_send.json", "w") as f:
               json.dump(report, f, indent=2)
 
-          print("Report built successfully")
+          print(f"Status: {'PASSED' if failed == 0 else 'FAILED'}")
           print(f"Total: {total}, Passed: {passed}, Failed: {failed}")
           EOF
 
-      - name: Send report to local receiver via ngrok tunnel
+      - name: Send report to receiver
         run: |
           curl -s -X POST \
             -H "Content-Type: application/json" \
             -d @report_to_send.json \
-            "${{ secrets.RECEIVER_URL }}/report" || echo "⚠️ Could not reach receiver"
+            "${{ secrets.RECEIVER_URL }}/report" || echo "Receiver not reachable"
 
-      - name: Fail job if tests failed
+      - name: Fail if tests failed
         run: |
           python -c "
           import json
           with open('report_to_send.json') as f:
               r = json.load(f)
           if r['overall_status'] == 'failed':
-              print('Tests FAILED - failing the pipeline')
+              print('TESTS FAILED')
               exit(1)
-          print('All tests passed!')
+          print('ALL TESTS PASSED')
           "
 
   deploy:
@@ -108,3 +100,78 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./static
           publish_branch: gh-pages
+
+  email_report:
+    needs: test
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: pip install flask pytest requests pytest-json-report
+
+      - name: Run tests for report
+        run: |
+          pytest tests/ -v --tb=short --json-report --json-report-file=pytest_report.json
+        continue-on-error: true
+
+      - name: Build report for email
+        run: |
+          python - <<'EOF'
+          import json, os
+
+          with open("pytest_report.json") as f:
+              pr = json.load(f)
+
+          tests = []
+          for t in pr.get("tests", []):
+              tests.append({
+                  "name": t["nodeid"],
+                  "result": t["outcome"],
+                  "failure_message": t.get("call", {}).get("longrepr", "") if t["outcome"] == "failed" else ""
+              })
+
+          total  = len(tests)
+          passed = sum(1 for t in tests if t["result"] == "passed")
+          failed = total - passed
+
+          report = {
+              "repository":     os.environ.get("GITHUB_REPOSITORY", ""),
+              "branch":         os.environ.get("GITHUB_REF_NAME", ""),
+              "commit_sha":     os.environ.get("GITHUB_SHA", ""),
+              "run_id":         os.environ.get("GITHUB_RUN_ID", ""),
+              "timestamp":      os.environ.get("GITHUB_EVENT_HEAD_COMMIT_TIMESTAMP", ""),
+              "tests":          tests,
+              "total_count":    total,
+              "passed_count":   passed,
+              "failed_count":   failed,
+              "overall_status": "passed" if failed == 0 else "failed"
+          }
+
+          with open("report_to_send.json", "w") as f:
+              json.dump(report, f, indent=2)
+          EOF
+
+      - name: Send email report
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 587
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "CI Report - ${{ github.repository }} - ${{ github.sha }}"
+          to: ${{ secrets.EMAIL_TO }}
+          from: ${{ secrets.EMAIL_USERNAME }}
+          body: |
+            CI Pipeline Report
+            ==================
+            Repository : ${{ github.repository }}
+            Branch     : ${{ github.ref_name }}
+            Commit SHA : ${{ github.sha }}
+            Run ID     : ${{ github.run_id }}
+
+            Check attached JSON for full test results.
+          attachments: report_to_send.json
