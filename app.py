@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+﻿from flask import Flask, request, jsonify
 import json
 import os
 import re
@@ -76,30 +76,30 @@ def index():
     <script>
         async function submitAssignment() {
             const data = {
-                name: document.getElementById('name').value,
-                reg_number: document.getElementById('reg').value,
-                title: document.getElementById('title').value,
-                url: document.getElementById('url').value
+                name: document.getElementById("name").value,
+                reg_number: document.getElementById("reg").value,
+                title: document.getElementById("title").value,
+                url: document.getElementById("url").value
             };
-            const res = await fetch('/submit', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+            const res = await fetch("/submit", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
                 body: JSON.stringify(data)
             });
             const result = await res.json();
-            const msg = document.getElementById('message');
+            const msg = document.getElementById("message");
             msg.textContent = result.message;
-            msg.className = result.success ? 'success' : 'error';
+            msg.className = result.success ? "success" : "error";
             if (result.success) loadSubmissions();
         }
 
         async function loadSubmissions() {
-            const res = await fetch('/submissions');
+            const res = await fetch("/submissions");
             const data = await res.json();
-            const table = document.getElementById('subTable');
-            table.innerHTML = '<tr><th>Name</th><th>Reg No</th><th>Title</th><th>URL</th></tr>';
+            const table = document.getElementById("subTable");
+            table.innerHTML = "<tr><th>Name</th><th>Reg No</th><th>Title</th><th>URL</th></tr>";
             data.forEach(s => {
-                table.innerHTML += `<tr><td>${s.name}</td><td>${s.reg_number}</td><td>${s.title}</td><td><a href="${s.url}" target="_blank">Link</a></td></tr>`;
+                table.innerHTML += "<tr><td>" + s.name + "</td><td>" + s.reg_number + "</td><td>" + s.title + "</td><td><a href=" + s.url + " target=_blank>Link</a></td></tr>";
             });
         }
         loadSubmissions();
@@ -108,41 +108,38 @@ def index():
 </html>
 '''
 
-@app.route('/submit', methods=['POST'])
+@app.route("/submit", methods=["POST"])
 def submit():
     data = request.get_json()
-    
-    # Validate required fields
-    if not data.get('name') or not data['name'].strip():
+
+    if not data.get("name") or not data["name"].strip():
         return jsonify({"success": False, "message": "Name is required"}), 400
-    
-    if not data.get('reg_number') or not data['reg_number'].strip():
-        return jsonify({"success": False, "message": "Registration number is required"}), 400
-    
-    if not data.get('title') or not data['title'].strip():
+
+    # DEFECT: registration number validation removed
+
+    if not data.get("title") or not data["title"].strip():
         return jsonify({"success": False, "message": "Assignment title is required"}), 400
-    
-    if not data.get('url') or not data['url'].strip():
+
+    if not data.get("url") or not data["url"].strip():
         return jsonify({"success": False, "message": "Submission URL is required"}), 400
-    
-    if not is_valid_url(data['url']):
+
+    if not is_valid_url(data["url"]):
         return jsonify({"success": False, "message": "Invalid submission URL"}), 400
-    
-    # Save submission
+
     submissions = load_submissions()
     submissions.append({
-        "name": data['name'].strip(),
-        "reg_number": data['reg_number'].strip(),
-        "title": data['title'].strip(),
-        "url": data['url'].strip()
+        "name": data["name"].strip(),
+        "reg_number": data.get("reg_number", "").strip(),
+        "title": data["title"].strip(),
+        "url": data["url"].strip()
     })
     save_submissions(submissions)
-    
+
     return jsonify({"success": True, "message": "Submission saved successfully!"})
 
-@app.route('/submissions', methods=['GET'])
+@app.route("/submissions", methods=["GET"])
 def get_submissions():
     return jsonify(load_submissions())
 
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+if __name__ == "__main__":
+    app.run(debug=True, host="0.0.0.0", port=5000)
