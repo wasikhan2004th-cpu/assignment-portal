@@ -1,4 +1,4 @@
-﻿from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify
 import json
 import os
 import re
@@ -27,9 +27,9 @@ def is_valid_url(url):
         r'(?:/?|[/?]\S+)$', re.IGNORECASE)
     return bool(pattern.match(url))
 
-@app.route('/')
+@app.route("/")
 def index():
-    return '''
+    return """
 <!DOCTYPE html>
 <html>
 <head>
@@ -52,7 +52,7 @@ def index():
     </style>
 </head>
 <body>
-    <h1>📚 Assignment Submission Portal</h1>
+    <h1>Assignment Submission Portal</h1>
     <div class="form-box">
         <label>Student Name *</label>
         <input type="text" id="name" placeholder="Enter your full name">
@@ -65,48 +65,45 @@ def index():
         <button onclick="submitAssignment()">Submit Assignment</button>
         <div id="message"></div>
     </div>
-
     <div class="submissions">
-        <h2>📋 Submissions</h2>
+        <h2>Submissions</h2>
         <table id="subTable">
             <tr><th>Name</th><th>Reg No</th><th>Title</th><th>URL</th></tr>
         </table>
     </div>
-
     <script>
         async function submitAssignment() {
             const data = {
-                name: document.getElementById("name").value,
-                reg_number: document.getElementById("reg").value,
-                title: document.getElementById("title").value,
-                url: document.getElementById("url").value
+                name: document.getElementById('name').value,
+                reg_number: document.getElementById('reg').value,
+                title: document.getElementById('title').value,
+                url: document.getElementById('url').value
             };
-            const res = await fetch("/submit", {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
+            const res = await fetch('/submit', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(data)
             });
             const result = await res.json();
-            const msg = document.getElementById("message");
+            const msg = document.getElementById('message');
             msg.textContent = result.message;
-            msg.className = result.success ? "success" : "error";
+            msg.className = result.success ? 'success' : 'error';
             if (result.success) loadSubmissions();
         }
-
         async function loadSubmissions() {
-            const res = await fetch("/submissions");
+            const res = await fetch('/submissions');
             const data = await res.json();
-            const table = document.getElementById("subTable");
-            table.innerHTML = "<tr><th>Name</th><th>Reg No</th><th>Title</th><th>URL</th></tr>";
+            const table = document.getElementById('subTable');
+            table.innerHTML = '<tr><th>Name</th><th>Reg No</th><th>Title</th><th>URL</th></tr>';
             data.forEach(s => {
-                table.innerHTML += "<tr><td>" + s.name + "</td><td>" + s.reg_number + "</td><td>" + s.title + "</td><td><a href=" + s.url + " target=_blank>Link</a></td></tr>";
+                table.innerHTML += '<tr><td>'+s.name+'</td><td>'+s.reg_number+'</td><td>'+s.title+'</td><td><a href="'+s.url+'" target="_blank">Link</a></td></tr>';
             });
         }
         loadSubmissions();
     </script>
 </body>
 </html>
-'''
+"""
 
 @app.route("/submit", methods=["POST"])
 def submit():
@@ -115,7 +112,8 @@ def submit():
     if not data.get("name") or not data["name"].strip():
         return jsonify({"success": False, "message": "Name is required"}), 400
 
-    # DEFECT: registration number validation removed
+    if not data.get("reg_number") or not data["reg_number"].strip():
+        return jsonify({"success": False, "message": "Registration number is required"}), 400
 
     if not data.get("title") or not data["title"].strip():
         return jsonify({"success": False, "message": "Assignment title is required"}), 400
@@ -129,7 +127,7 @@ def submit():
     submissions = load_submissions()
     submissions.append({
         "name": data["name"].strip(),
-        "reg_number": data.get("reg_number", "").strip(),
+        "reg_number": data["reg_number"].strip(),
         "title": data["title"].strip(),
         "url": data["url"].strip()
     })
