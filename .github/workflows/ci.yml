@@ -1,0 +1,110 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: ["**"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    outputs:
+      test_result: ${{ steps.run_tests.outputs.result }}
+      report_json: ${{ steps.build_report.outputs.report }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install flask pytest requests
+
+      - name: Run tests and capture output
+        id: run_tests
+        run: |
+          pytest tests/ -v --tb=short --json-report --json-report-file=pytest_report.json || true
+          pip install pytest-json-report
+          pytest tests/ -v --tb=short --json-report --json-report-file=pytest_report.json
+          echo "result=done" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Build JSON report
+        id: build_report
+        run: |
+          python - <<'EOF'
+          import json, os
+
+          # Load pytest report
+          with open("pytest_report.json") as f:
+              pr = json.load(f)
+
+          tests = []
+          for t in pr.get("tests", []):
+              tests.append({
+                  "name": t["nodeid"],
+                  "result": t["outcome"],
+                  "failure_message": t.get("call", {}).get("longrepr", "") if t["outcome"] == "failed" else ""
+              })
+
+          total   = len(tests)
+          passed  = sum(1 for t in tests if t["result"] == "passed")
+          failed  = total - passed
+
+          report = {
+              "repository":    "${{ github.repository }}",
+              "branch":        "${{ github.ref_name }}",
+              "commit_sha":    "${{ github.sha }}",
+              "run_id":        "${{ github.run_id }}",
+              "timestamp":     "${{ github.event.head_commit.timestamp }}",
+              "tests":         tests,
+              "total_count":   total,
+              "passed_count":  passed,
+              "failed_count":  failed,
+              "overall_status": "passed" if failed == 0 else "failed"
+          }
+
+          with open("report_to_send.json", "w") as f:
+              json.dump(report, f, indent=2)
+
+          print("Report built successfully")
+          print(f"Total: {total}, Passed: {passed}, Failed: {failed}")
+          EOF
+
+      - name: Send report to local receiver via ngrok tunnel
+        run: |
+          curl -s -X POST \
+            -H "Content-Type: application/json" \
+            -d @report_to_send.json \
+            "${{ secrets.RECEIVER_URL }}/report" || echo "⚠️ Could not reach receiver"
+
+      - name: Fail job if tests failed
+        run: |
+          python -c "
+          import json
+          with open('report_to_send.json') as f:
+              r = json.load(f)
+          if r['overall_status'] == 'failed':
+              print('Tests FAILED - failing the pipeline')
+              exit(1)
+          print('All tests passed!')
+          "
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && needs.test.result == 'success'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./static
+          publish_branch: gh-pages
